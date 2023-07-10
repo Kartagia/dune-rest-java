@@ -89,8 +89,16 @@ public class CreateDatabase {
    */
   public static final Pattern CREATE_TABLE_SQL_PATTERN = Pattern.compile(
     "^" +
-    "create(?:\\s+(?:local|global)(?:\\s+temp(?:orary)?))?|)?\\s+table\\s+" +
-    "(?:if\\s+not\\s+exists\\s+)?" +
+    "create" +
+    "(?:" +
+    "(?:\\s+" +
+    "(?:local|global)?" +
+    ")?" +
+    "(?:\\s+temp(?:orary)?)?" +
+    ")?" +
+    "\\s+table" +
+    "\\s+(?:if\\s+not\\s+exists\\s+)?" +
+    "\\s+" +
     NAME_PATTERN,
     Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE
   );
@@ -620,8 +628,13 @@ public class CreateDatabase {
     return this.tables;
   }
 
+  /**
+   * Test validity of a database identifier.
+   * @param name The tested name.
+   * @return True, if and only if the given identifier is valid database identified.
+   */
   protected static boolean validDatabaseIdentifier(String name) {
-    return false;
+    return name != null && IDENTIFIER_PATTERN.matcher(name).matches();
   }
 
   /**
