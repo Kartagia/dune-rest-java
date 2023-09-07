@@ -1,4 +1,4 @@
-package com.kautiainen.antti.dunerest;
+package com.kautiainen.antti.utils.db;
 
 import java.io.Serializable;
 import java.sql.Connection;
@@ -67,15 +67,35 @@ public class CreateDatabase {
     Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE
   );
 
+  public static final Pattern VALUE_PATTERN = Pattern.compile(
+    "(?:\"[^\"]*\"|[+-]?\\d+(?:\\.\\d+)?)"
+  );
+
+  public static final Pattern INSERT_SQL_PATTERN = Pattern.compile(
+    "^" +
+    "insert into " +
+    TABLE_NAMES_PATTERN +
+    "\\((?<fields>" +
+    NAME_PATTERN +
+    "(?:,\\s+" +
+    NAME_PATTERN +
+    ")*" +
+    ")?\\) VALUES \\((?<value>" +
+    VALUE_PATTERN +
+    ")\\)" +
+    "$",
+    Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE
+  );
+
   /**
    * The SQL command pattern for creating a single veiw.
    */
   public static final Pattern CREATE_VIEW_SQL_PATTERN = Pattern.compile(
     "^" +
     "create" +
-    "(?:\\s+or\\s+replace)?" +
-    "(?:\\s+temp(?:orary)?)?" +
-    "(?:\\s+recursive)?" +
+    "(?<replaces>\\s+or\\s+replace)?" +
+    "(?<temporary>\\s+temp(?:orary)?)?" +
+    "(?<recursive>\\s+recursive)?" +
     "view" +
     "\\s+" +
     NAME_PATTERN.toString() +
@@ -92,12 +112,12 @@ public class CreateDatabase {
     "create" +
     "(?:" +
     "(?:\\s+" +
-    "(?:local|global)?" +
+    "(?<location>local|global)?" +
     ")?" +
-    "(?:\\s+temp(?:orary)?)?" +
+    "(?<temporary>\\s+temp(?:orary)?)?" +
     ")?" +
     "\\s+table" +
-    "\\s+(?:if\\s+not\\s+exists\\s+)?" +
+    "\\s+(?<createNew>if\\s+not\\s+exists\\s+)?" +
     "\\s+" +
     NAME_PATTERN,
     Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE
@@ -113,7 +133,7 @@ public class CreateDatabase {
     "\\s+" +
     TABLE_NAMES_PATTERN.toString() +
     "\\s*" +
-    "(?:\\s+(?:cascade|restrict))?" +
+    "(?:\\s+(?<propagation>cascade|restrict))?" +
     "\\s*;\\s*?$",
     Pattern.UNICODE_CASE | Pattern.CASE_INSENSITIVE
   );
@@ -185,6 +205,13 @@ public class CreateDatabase {
    */
   public CreateDatabase() {}
 
+  /**
+   * Create database with given table and view creation and table
+   * intialization.
+   * @param tableCreationCommands The list of table creation commands.
+   * @param viewCreationCommadns The view creation commands.
+   * @param tableInitializationCOmmands The commands populating the created tables.
+   */
   public CreateDatabase(
     List<String> tableCreationCommands,
     List<String> viewCreationCommands,
@@ -221,6 +248,12 @@ public class CreateDatabase {
     }
   }
 
+  /**
+   * Test validity of the database creationcommands.
+   * @param tableInitializationCommands The database creation commands.
+   * @return True, if and only if the databse initialization commands
+   * are valid.
+   */
   private boolean validTableInitializationCommands(
     List<String> tableInitializationCommands
   ) {
@@ -653,6 +686,11 @@ public class CreateDatabase {
     return this.tableInitializations;
   }
 
+  /**
+   * Create database to the given data source.
+   * @param dataSource The data source into which the database will be created.
+   * @return True, if and only if the creation of the database succeeded.
+   */
   public boolean createDatabase(DataSource dataSource) {
     List<String> rollback = new ArrayList<>();
     try (Connection connection = dataSource.getConnection()) {
