@@ -1,4 +1,4 @@
-package com.heroku.java;
+package com.kautiainen.antti.dunerest;
 
 import java.sql.Connection;
 import java.util.ArrayList;
@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 @SpringBootApplication
 @Controller
-public class GettingStartedApplication {
+public class DuneRest {
 
   private final DataSource dataSource;
 
   @Autowired
-  public GettingStartedApplication(DataSource dataSource) {
+  public DuneRest(DataSource dataSource) {
     this.dataSource = dataSource;
   }
 
@@ -125,6 +125,6 @@ public class GettingStartedApplication {
   }
 
   public static void main(String[] args) {
-    SpringApplication.run(GettingStartedApplication.class, args);
+    SpringApplication.run(DuneRest.class, args);
   }
 }
