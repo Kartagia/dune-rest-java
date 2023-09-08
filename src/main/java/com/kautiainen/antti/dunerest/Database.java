@@ -60,6 +60,7 @@ public class Database {
     Connection connection,
     java.io.PrintStream logger
   ) throws SQLException {
+    log(logger, "%n%nCreating tables:%n");
     boolean result = true;
     String tableName;
     PreparedStatement stmt;
@@ -117,6 +118,7 @@ public class Database {
    * @throws SQLException The construction of any view failed.
    */
   public boolean createViews(Connection connection) throws SQLException {
+    log(System.err, "%n%nCreating views:%n");
     return true;
   }
 
@@ -127,15 +129,31 @@ public class Database {
    * @throws SQLException The population of the database failed.
    */
   public boolean populateTables(Connection connection) throws SQLException {
+    return populateTables(connection, System.err);
+  }
+
+  /**
+   * Populate the created tables with default values.
+   * @param connection The database connection used to insert initial content to the database.
+   * @return True, if and only if the tables were craeted.
+   * @throws SQLException The population of the database failed.
+   */
+  public boolean populateTables(
+    Connection connection,
+    java.io.PrintStream logger
+  ) throws SQLException {
+    log(logger, "%n%nPopulating tables:%n");
     AtomicBoolean result = new AtomicBoolean(false);
     PreparedStatement stmt = connection.prepareStatement(
       "INSERT INTO Motivation (name) VALUES (?)"
     );
     getDefaultMotivations()
       .forEach((String motivation) -> {
+        log(logger, "Adding motivation %s%n", motivation);
         try {
           stmt.setString(1, motivation);
           result.set(result.get() | stmt.executeUpdate() > 0);
+          log(logger, "Added motivation %s%n", motivation);
         } catch (SQLException sqle) {}
       });
     return result.get();
@@ -179,9 +197,18 @@ public class Database {
   public boolean drop(Connection connection) throws SQLException {
     try {
       connection.createStatement().execute("START TRANSACTION");
-      connection
-        .createStatement()
-        .execute("DROP TABLE IF EXISTS PersonMotivations, Motivation, Person");
+      for (String tableName : getTableNames()) {
+        if (
+          connection
+            .createStatement()
+            .executeUpdate("DROP TABLE IF EXISTS " + tableName) >
+          0
+        ) {
+          log(System.err, "Table %s dropped%n", tableName);
+        } else {
+          log(System.err, "Table %s not dropped%n", tableName);
+        }
+      }
       connection.createStatement().execute("COMMIT");
       return true;
     } catch (SQLException sqle) {
