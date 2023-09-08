@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -12,25 +14,68 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Database {
 
   /**
+   * Get table names of the database.
+   * @return The list of the table names in the database.
+   */
+  public List<String> getTableNames() {
+    return Arrays.asList("Motivation", "Person", "PersonMotivation");
+  }
+
+  /**
+   * Get the view names of the database.
+   * @return The list of the view names of the database.
+   */
+  public List<String> getViewNames() {
+    return Arrays.asList();
+  }
+
+  /**
    * Create tables of the Dune database.
    * @param connection The database connection used to create tables.
    * @return True, if and only if the tables were created.
    * @throws SQLException The operation failed due SQL exception.
    */
   public boolean createTables(Connection connection) throws SQLException {
+    return createTables(connection, System.err);
+  }
+
+  protected void log(
+    java.io.PrintStream logger,
+    String format,
+    Object... args
+  ) {
+    if (logger != null) {
+      logger.printf(format, args);
+    }
+  }
+
+  /**
+   * Create tables of the Dune database.
+   * @param connection The database connection used to create tables.
+   * @param logger THe stream into which logging reports are printed.
+   * @return True, if and only if the tables were created.
+   * @throws SQLException The operation failed due SQL exception.
+   */
+  public boolean createTables(
+    Connection connection,
+    java.io.PrintStream logger
+  ) throws SQLException {
     boolean result = true;
+    String tableName;
     PreparedStatement stmt;
+    tableName = "Person";
     stmt =
       connection.prepareStatement(
         "CREATE TABLE IF NOT EXISTS Person (" +
-        ", " +
         "id serial primary key" +
         ", " +
         "name varchar(255) not null" +
         ")"
       );
     stmt.executeUpdate();
+    log(logger, "Table %s created%n", tableName);
 
+    tableName = "Motivation";
     stmt =
       connection.prepareStatement(
         "CREATE TABLE IF NOT EXISTS Motivation (" +
@@ -42,7 +87,9 @@ public class Database {
         ");"
       );
     stmt.executeUpdate();
+    log(logger, "Table %s created%n", tableName);
 
+    tableName = "PersonMotivations";
     stmt =
       connection.prepareStatement(
         "CREATE TABLE IF NOT EXISTS PersonMotivations (" +
@@ -57,6 +104,8 @@ public class Database {
         "PRIMARY KEY (person_id, motivation_id)" +
         ")"
       );
+    stmt.executeUpdate();
+    log(logger, "Table %s created%n", tableName);
 
     return result;
   }
@@ -96,7 +145,7 @@ public class Database {
    * The defautl motivation names of the database.
    * @return The list of default motivations the database is populated with.
    */
-  protected Iterable<String> getDefaultMotivations() {
+  protected Collection<String> getDefaultMotivations() {
     return Arrays.asList("Duty", "Power", "Justice", "Truth", "Faith");
   }
 
