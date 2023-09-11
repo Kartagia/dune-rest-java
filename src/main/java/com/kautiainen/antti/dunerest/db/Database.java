@@ -1,4 +1,4 @@
-package com.kautiainen.antti.dunerest;
+package com.kautiainen.antti.dunerest.db;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -9,9 +9,34 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * The database of the Dune.
+ * The database of the Dune. This class allows construction, and removal
+ * of the database tables, views, and default content.
  */
 public class Database {
+
+  /**
+   * Log a mesasge to a stream.
+   * @param logger The stream into which the message is logged.
+   * @param format The format used to create the message.
+   * @param args The format parameter values.
+   */
+  public void log(java.io.PrintStream logger, String format, Object... args) {
+    if (logger != null) {
+      logger.printf(format, args);
+    }
+  }
+
+  /**
+   * Log a mesasge to a writer
+   * @param logger The stream into which the message is logged.
+   * @param format The format used to create the message.
+   * @param args The format parameter values.
+   */
+  public void log(java.io.PrintWriter logger, String format, Object... args) {
+    if (logger != null) {
+      logger.printf(format, args);
+    }
+  }
 
   /**
    * Get table names of the database.
@@ -37,16 +62,6 @@ public class Database {
    */
   public boolean createTables(Connection connection) throws SQLException {
     return createTables(connection, System.err);
-  }
-
-  protected void log(
-    java.io.PrintStream logger,
-    String format,
-    Object... args
-  ) {
-    if (logger != null) {
-      logger.printf(format, args);
-    }
   }
 
   /**
@@ -82,9 +97,9 @@ public class Database {
         "CREATE TABLE IF NOT EXISTS Motivation (" +
         "id serial primary key" +
         ", " +
-        "name varchar(255) not null" +
+        "name varchar(255) not null unique" +
         ", " +
-        "description text" +
+        "description text DEFAULT null" +
         ");"
       );
     stmt.executeUpdate();
@@ -100,7 +115,9 @@ public class Database {
         "," +
         "value smallint DEFAULT '4'" +
         "," +
-        "statement varchar(255)" +
+        "statement varchar(255) DEFAULT null" +
+        ", " +
+        "challenged boolean DEFAULT false" +
         "," +
         "PRIMARY KEY (person_id, motivation_id)" +
         ")"
@@ -163,7 +180,7 @@ public class Database {
    * The defautl motivation names of the database.
    * @return The list of default motivations the database is populated with.
    */
-  protected Collection<String> getDefaultMotivations() {
+  public Collection<String> getDefaultMotivations() {
     return Arrays.asList("Duty", "Power", "Justice", "Truth", "Faith");
   }
 
