@@ -35,13 +35,26 @@ public class Motivation extends NamedAndValuedObject<Integer> {
   /**
    * Create a new motivation with a name, a value, and a drive statement.
    * @param name The name of the motivation.
-   * @param value The value of the motivation.
+   * @param value The value of the motivation. If the value is undefined,
+   * the motivation does not yet have value.
    * @param statement The drive statement of the motivation.
    * @throws IllegalArgumentException Any parameter was invalid.
    */
-  public Motivation(String name, int value, String statement)
+  public Motivation(String name, Integer value, String statement)
     throws IllegalArgumentException {
     super(name, value);
+    setStatement(statement);
+  }
+
+  /**
+   * Create a new motivation from base named and valued object and statement.
+   * @param base The base named and valued object.
+   * @param statement The staement of the created motivation.
+   * @throws IllegalArgumentException Either the base value or the statement was not acceptable.
+   */
+  public Motivation(NamedAndValuedObject<Integer> base, String statement)
+    throws IllegalArgumentException {
+    super(base);
     setStatement(statement);
   }
 
@@ -52,7 +65,8 @@ public class Motivation extends NamedAndValuedObject<Integer> {
    * @param value The value of the created motivation.
    * @throws IllegalArgumentException Any parameter was invalid.
    */
-  public Motivation(String name, int value) throws IllegalArgumentException {
+  public Motivation(String name, Integer value)
+    throws IllegalArgumentException {
     this(name, value, null);
   }
 

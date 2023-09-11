@@ -1,5 +1,8 @@
 package com.kautiainen.antti.dunerest.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * An object with both name and level.
  * @param <T> The type of the level.
@@ -67,8 +70,33 @@ public class NamedAndValuedObject<T> implements Named<T>, Valued<T> {
     }
   }
 
-  public NamedAndValuedObject(String name, T value)
-    throws IllegalArgumentException {
+  /**
+   * Create a new named and valued object from an another named and valued object.
+   * @param source The source.
+   */
+  public NamedAndValuedObject(NamedAndValuedObject<? extends T> source) {
+    if (source == null) {
+      throw new IllegalArgumentException(
+        "Invalid source",
+        new NullPointerException("Undefined value")
+      );
+    }
+    setName(source.getName());
+    setValue(source.getValue());
+  }
+
+  /**
+   * Create a new named and valued object from a name and value.
+   * @param name The name of the created named and valued object.
+   * @param value The value of the created named and valued object.
+   * @throws IllegalArgumentException Either the name or the value
+   * was not acceptable.
+   */
+  @JsonCreator
+  public NamedAndValuedObject(
+    @JsonProperty("name") String name,
+    @JsonProperty("value") T value
+  ) throws IllegalArgumentException {
     setName(name);
     setValue(value);
   }
