@@ -2,6 +2,7 @@ package com.kautiainen.antti.dunerest.db;
 
 import com.kautiainen.antti.dunerest.model.Motivation;
 import com.kautiainen.antti.dunerest.model.Person;
+import com.kautiainen.antti.dunerest.model.Skill;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -9,7 +10,10 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -18,12 +22,17 @@ import javax.sql.DataSource;
 /**
  * The data access object for persons - the characters of the game.
  */
-public class PersonDao {
+public class PersonDao implements DAO<Integer, Person> {
 
   /**
    * The data source of the dao.
    */
   private DataSource source;
+
+  @Override
+  public DataSource getSource() {
+    return source;
+  }
 
   /**
    * Create a new DAO using given data source.
@@ -90,6 +99,123 @@ public class PersonDao {
     return create(Identified.create(null, person));
   }
 
+  protected boolean addPersonMotivation(
+    Connection conn,
+    Integer personId,
+    Integer motivationId,
+    Motivation motivation
+  ) throws SQLException {
+    PreparedStatement addPersonMotivationStmt = conn.prepareStatement(
+      "INSERT INTO PersonMotivations (person_id, motivation_id, value, statement, challenged) VALUES (?,?,?, ?, ?)"
+    );
+
+    int index = 1;
+    addPersonMotivationStmt.setInt(index++, personId);
+    addPersonMotivationStmt.setInt(index++, motivationId);
+    addPersonMotivationStmt.setShort(
+      index++,
+      motivation.getValue().shortValue()
+    );
+    addPersonMotivationStmt.setString(index++, motivation.getStatement());
+    if (addPersonMotivationStmt.executeUpdate() == 1) {
+      // The adding succeeded
+      return true;
+    } else {
+      // The adding failed
+      return false;
+    }
+  }
+
+  protected boolean updatePersonMotivation(
+    Connection conn,
+    Integer personId,
+    Integer motivationId,
+    Motivation motivation
+  ) throws SQLException {
+    PreparedStatement updateStmt = conn.prepareStatement(
+      "UPDATE PersonMotivation SET value=? AND statement = ? AND  challenged = ? WHERE person_id=? AND motivation_id=?"
+    );
+
+    int index = 1;
+    updateStmt.setShort(index++, motivation.getValue().shortValue());
+    updateStmt.setString(index++, motivation.getStatement());
+    updateStmt.setInt(index++, personId);
+    updateStmt.setInt(index++, motivationId);
+    if (updateStmt.executeUpdate() == 1) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * Add or update a motivation.
+   * @param connection The database connection used to update or add motivation.
+   * @param personId The identifier of the person.
+   * @param motivation The motivation added or updated.
+   * @throws SQLException The operation fails due SQL error.
+   */
+  protected void addOrUpdateMotivation(
+    Connection conn,
+    Integer personId,
+    Motivation motivation
+  ) throws SQLException {
+    // Check if the motivation exists.
+    // TODO: Replace this with motivation DAO.
+    PreparedStatement getIdStmt = conn.prepareStatement(
+      "SELECT id FROM Motivation WHERE name=?"
+    );
+    PreparedStatement getPersonMotivationStmt = conn.prepareStatement(
+      "SELECT * FROM PersonMotivationsView WHERE person_id = ? AND motivation_id = ?;"
+    );
+    PreparedStatement addNewStmt = conn.prepareStatement(
+      "INSERT INTO Motivation (name) VALUES (?)"
+    );
+    Integer motivationId = null;
+    String motivationName = motivation.getName();
+    getIdStmt.setString(1, motivationName);
+    ResultSet rows = getIdStmt.executeQuery();
+    if (rows.next()) {
+      // The motivation does exist.
+      motivationId = rows.getInt("id");
+      rows.close();
+
+      // Checking if the motivation does exist.
+      int index = 1;
+      getPersonMotivationStmt.setInt(index++, personId);
+      getPersonMotivationStmt.setInt(index++, motivationId);
+      rows = getPersonMotivationStmt.executeQuery();
+      if (rows.next()) {
+        // Update a person motivation.
+        updatePersonMotivation(conn, personId, motivationId, motivation);
+      } else {
+        // Add a new person motivation.
+        if (!addPersonMotivation(conn, personId, motivationId, motivation)) {
+          throw new SQLException("Cound not add new motivation");
+        }
+      }
+    } else {
+      // Create a new motivation.
+      rows.close();
+      addNewStmt.setString(1, motivationName);
+      ResultSet addedIds = addNewStmt.getGeneratedKeys();
+      if (addedIds.next()) {
+        motivationId = addedIds.getInt("id");
+      }
+      if (
+        !(
+          (addNewStmt.executeUpdate() == 1) &&
+          addPersonMotivation(conn, personId, motivationId, motivation)
+        )
+      ) {
+        // The motivation was not added.
+        throw new SQLException("Could not create a new motivation");
+      }
+    }
+    getIdStmt.close();
+    addNewStmt.close();
+  }
+
   /**
    * Create a new person from identified.
    * @param added The added identified.
@@ -98,7 +224,7 @@ public class PersonDao {
    * @throws IllegalArgumentException THe given added was invalid.
    */
   public Identified<Integer, Person> create(Identified<Integer, Person> added)
-    throws SQLException, IllegalArgumentException {
+    throws IllegalStateException, IllegalArgumentException {
     if (added == null || added.getValue() == null) {
       throw new IllegalArgumentException(
         "Invalid created person",
@@ -175,134 +301,9 @@ public class PersonDao {
       // TODO: Adding skills
 
       // Adding motivations.
-      do {
-        // TODO: Replace this with motivation DAO.
-        PreparedStatement getIdStmt = conn.prepareStatement(
-          "SELECT id FROM Motivation WHERE name=?"
-        );
-        PreparedStatement addNewStmt = conn.prepareStatement(
-          "INSERT INTO Motivation (name) VALUES (?)"
-        );
-        PreparedStatement updatePersonMotivationStmt = conn.prepareStatement(
-          "UPDATE PersonMotivation SET value=? AND statement = ? AND  challenged = ? WHERE person_id=? AND motivation_id=?"
-        );
-        PreparedStatement addPersonMotivationStmt = conn.prepareStatement(
-          "INSERT INTO PersonMotivations (person_id, motivation_id, value, statement, challenged) VALUES (?,?,?, ?, ?)"
-        );
-
-        AtomicReference<SQLException> exception = new AtomicReference<SQLException>(
-          null
-        );
-        final AtomicReference<Integer> motivationId = new AtomicReference<Integer>(
-          null
-        );
-        added
-          .getValue()
-          .getMotivations()
-          .forEach(
-            (Consumer<? super Motivation>) (Motivation motivation) -> {
-              if (exception.get() != null) {
-                // The exception means we skip the rest of the motivations.
-                return;
-              }
-              try {
-                // Getting the motivation identifier of the motivation.
-                motivationId.set(null);
-                getIdStmt.setString(1, motivation.getName());
-                ResultSet rows = getIdStmt.executeQuery();
-                if (rows.next()) {
-                  // The motivation id is acquried.
-                  motivationId.set(rows.getInt("id"));
-                } else {
-                  addNewStmt.setString(1, motivation.getName());
-                  if (addNewStmt.executeUpdate() > 0) {
-                    // The operation succeeded.
-                    ResultSet ids = addNewStmt.getGeneratedKeys();
-                    if (ids.next()) {
-                      motivationId.set(ids.getInt(1));
-                    } else {
-                      // This is an erroneous state as an id was generated.
-                    }
-                  } else {
-                    // The update failed.
-                  }
-                }
-
-                // Testing if we do have existing person motivation.
-                try {
-                  // First trying to update
-                  int paramIndex = 1;
-                  updatePersonMotivationStmt.setShort(
-                    paramIndex++,
-                    (short) motivation.getValue().intValue()
-                  );
-                  updatePersonMotivationStmt.setString(
-                    paramIndex++,
-                    motivation.getName()
-                  );
-                  updatePersonMotivationStmt.setBoolean(
-                    paramIndex++,
-                    motivation.isChallenged()
-                  );
-                  updatePersonMotivationStmt.setInt(paramIndex++, personId);
-                  updatePersonMotivationStmt.setInt(
-                    paramIndex++,
-                    motivationId.get()
-                  );
-                  if (updatePersonMotivationStmt.executeUpdate() == 0) {
-                    // Update did not update value -- Throwing exception to trigger adding value.
-                    throw new Exception(
-                      "Update did not change a value - the value is not existing"
-                    );
-                  }
-                } catch (Exception noSuchMotivation) {
-                  // Inserting the motivation to the result.
-                  int paramIndex = 1;
-                  addPersonMotivationStmt.setInt(
-                    paramIndex++,
-                    motivationId.get()
-                  );
-                  addPersonMotivationStmt.setInt(paramIndex++, personId);
-                  addPersonMotivationStmt.setShort(
-                    paramIndex++,
-                    (short) motivation.getValue().intValue()
-                  );
-                  addPersonMotivationStmt.setString(
-                    paramIndex++,
-                    motivation.getStatement()
-                  );
-                  addPersonMotivationStmt.setBoolean(
-                    paramIndex++,
-                    motivation.isChallenged()
-                  );
-                  if (addPersonMotivationStmt.executeUpdate() > 0) {
-                    // Update succeeded.
-                    // TODO: Log adding the value was added.
-                  } else {
-                    // Update did not add a row.
-                    // TODO: Log information of this problem and set exception.
-                  }
-                }
-              } catch (SQLException ex) {
-                // The motivation table does not exist, or the change was ivnalid.
-                exception.set(ex);
-              }
-            }
-          );
-        if (exception.get() != null) {
-          // The operation failed. Performing rollback.
-          try {
-            stmt.execute("ROLLBACK");
-          } catch (SQLException e) {
-            // The exception is ignored.
-          }
-          throw exception.get();
-        }
-        addPersonMotivationStmt.close();
-        updatePersonMotivationStmt.close();
-        getIdStmt.close();
-        addNewStmt.close();
-      } while (false);
+      for (Motivation motivation : added.getValue().getMotivations()) {
+        addOrUpdateMotivation(conn, personId, motivation);
+      }
 
       // TODO: Adding traits
 
@@ -311,9 +312,166 @@ public class PersonDao {
       // TODO: Adding assets
 
       return result;
+    } catch (SQLException sqle) {
+      throw new IllegalStateException("The data source update failed", sqle);
     } catch (IllegalArgumentException iae) {
       // The person was invalid.
       throw new IllegalArgumentException("Invalid added person", iae);
+    }
+  }
+
+  /**
+   * Fetch motivations of a person.
+   * @param conn The connection used to access the database.
+   * @param identifier The identifier of the person.
+   * @return The set containing the motivations of the person.
+   * @throws SQLException The operation failed due SQL exception.
+   */
+  protected java.util.Set<Motivation> fetchMotivations(
+    Connection conn,
+    Integer identifier
+  ) throws SQLException {
+    PreparedStatement motivationStmt = conn.prepareStatement(
+      "SELECT * " + "FROM PersonMotivationsView " + "WHERE person_id=?" + ";"
+    );
+    motivationStmt.setInt(1, identifier);
+    ResultSet result = motivationStmt.executeQuery();
+    Map<String, Motivation> values = new TreeMap<>();
+    while (result.next()) {
+      // Getting motivations.
+      String name = result.getString("name");
+      values.put(
+        name,
+        new Motivation(
+          name,
+          (int) result.getShort("value"),
+          result.getString("statement"),
+          result.getBoolean("challenged")
+        )
+      );
+    }
+    return new java.util.HashSet<>(values.values());
+  }
+
+  /**
+   * Fetch skills of a person.
+   * @param conn The connection used to access the database.
+   * @param identifier The identifier of the person.
+   * @return The set containing the skills of the person.
+   * @throws SQLException The operation failed due SQL exception.
+   */
+  protected java.util.Set<Skill> fetchSkills(
+    Connection conn,
+    Integer identifier
+  ) throws SQLException {
+    PreparedStatement motivationStmt = conn.prepareStatement(
+      "SELECT * " + "FROM PersonSkillsView " + "WHERE person_id=?" + ";"
+    );
+    motivationStmt.setInt(1, identifier);
+    ResultSet result = motivationStmt.executeQuery();
+    Map<String, Skill> values = new TreeMap<>();
+    while (result.next()) {
+      // Getting motivations.
+      String name = result.getString("name");
+      values.put(name, new Skill(name, (int) result.getShort("value")));
+    }
+    return new java.util.HashSet<>(values.values());
+  }
+
+  /**
+   * Get the person with given identifier.
+   * @param identifier The identifier of the sought character.
+   * @return A defined identified, if the person with given identifier exists.
+   * Otherwise, an undefined value is returned.
+   */
+  public Identified<Integer, Person> fetch(Integer identifier)
+    throws IllegalStateException {
+    try {
+      if (identifier == null) return null;
+      Connection conn = source.getConnection();
+      PreparedStatement stmt = conn.prepareStatement(
+        "SELECT (id, name) FROM Person WHERE id=?;"
+      );
+      stmt.setInt(1, identifier);
+      ResultSet result = stmt.executeQuery();
+      Integer id = null;
+      Person person = new Person();
+      if (result.next()) {
+        // We do have a person.
+        person.setName(result.getString("name"));
+        id = result.getInt("id");
+
+        // Fetching motivations.
+        person.setMotivations(fetchMotivations(conn, id));
+
+        return Identified.create(id, person);
+      } else {
+        // No person found.
+        result.close();
+        return null;
+      }
+    } catch (SQLException sqle) {
+      throw new IllegalStateException(sqle);
+    }
+  }
+
+  /**
+   * Featch all persons.
+   * @return The list of all persons along with their identifiers.
+   * @throws SQLException The operation failed to a SQL exception.
+   */
+  @Override
+  public List<Identified<Integer, Person>> fetchAll()
+    throws IllegalStateException {
+    return fetchAll(null);
+  }
+
+  /**
+   * Featch all persons with given identifiers.
+   * @param identifiers The list of identifiers. If undefined, all identifiers are
+   * accepted.
+   * @return The list of persons, whose identifiers are given. If the identifiers
+   * is undefined, all persons are returned.
+   * @throws SQLException The operation fails due SQL Exception.
+   */
+  @Override
+  public List<Identified<Integer, Person>> fetchAll(
+    Collection<? extends Integer> identifiers
+  ) throws IllegalStateException {
+    try {
+      Connection conn = source.getConnection();
+      PreparedStatement stmt = conn.prepareStatement(
+        "SELECT (id, name) FROM Person" +
+        (
+          identifiers == null
+            ? ""
+            : " WHERE " +
+            String.join(
+              " OR ",
+              identifiers.stream().map(id -> ("id=?")).toList()
+            )
+        )
+      );
+      ResultSet result = stmt.executeQuery();
+      List<Identified<Integer, Person>> people = new ArrayList<>();
+      Integer id = null;
+      while (result.next()) {
+        // Creating the person.
+        Person person = new Person();
+        // We do have a person.
+        person.setName(result.getString("name"));
+        id = result.getInt("id");
+
+        // Fetching motivations.
+        person.setMotivations(fetchMotivations(conn, id));
+
+        people.add(Identified.create(id, person));
+      }
+      // No person found.
+      result.close();
+      return people;
+    } catch (SQLException sqle) {
+      throw new IllegalStateException(sqle);
     }
   }
 }

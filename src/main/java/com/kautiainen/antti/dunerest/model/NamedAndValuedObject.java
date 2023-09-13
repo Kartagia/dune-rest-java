@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * An object with both name and level.
  * @param <T> The type of the level.
  */
-public class NamedAndValuedObject<T> implements Named<T>, Valued<T> {
+public class NamedAndValuedObject<T> implements Named, Valued<T> {
 
   /**
    * The name of the motivation.

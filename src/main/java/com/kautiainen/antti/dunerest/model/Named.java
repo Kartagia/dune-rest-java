@@ -3,7 +3,7 @@ package com.kautiainen.antti.dunerest.model;
 /**
  * An object which has a name.
  */
-public interface Named<T> {
+public interface Named {
   /**
    * Get the name.
    * @return The name.

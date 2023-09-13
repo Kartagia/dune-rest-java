@@ -42,8 +42,27 @@ public class Motivation extends NamedAndValuedObject<Integer> {
    */
   public Motivation(String name, Integer value, String statement)
     throws IllegalArgumentException {
+    this(name, value, statement, false);
+  }
+
+  /**
+   * Create a new motivation with a name, a value, and a drive statement.
+   * @param name The name of the motivation.
+   * @param value The value of the motivation. If the value is undefined,
+   * the motivation does not yet have value.
+   * @param statement The drive statement of the motivation.
+   * @param isChallenged Is the created motivation challenged or not.
+   * @throws IllegalArgumentException Any parameter was invalid.
+   */
+  public Motivation(
+    String name,
+    Integer value,
+    String statement,
+    boolean isChallenged
+  ) throws IllegalArgumentException {
     super(name, value);
     setStatement(statement);
+    setChallenged(isChallenged);
   }
 
   /**
@@ -52,10 +71,24 @@ public class Motivation extends NamedAndValuedObject<Integer> {
    * @param statement The staement of the created motivation.
    * @throws IllegalArgumentException Either the base value or the statement was not acceptable.
    */
-  public Motivation(NamedAndValuedObject<Integer> base, String statement)
-    throws IllegalArgumentException {
+  public Motivation(
+    NamedAndValuedObject<Integer> base,
+    String statement,
+    boolean isChallenged
+  ) throws IllegalArgumentException {
     super(base);
     setStatement(statement);
+    setChallenged(isChallenged);
+  }
+
+  /**
+   * Create a new motivation from base named and valued object and statement.
+   * @param base The base named and valued object.
+   * @param statement The staement of the created motivation.
+   * @throws IllegalArgumentException Either the base value or the statement was not acceptable.
+   */
+  public Motivation(NamedAndValuedObject<Integer> base, String statement) {
+    this(base, statement, false);
   }
 
   /**
