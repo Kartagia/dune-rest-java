@@ -3,12 +3,15 @@ package com.kautiainen.antti.dunerest;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.kautiainen.antti.dunerest.db.Database;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Order;
@@ -55,8 +58,8 @@ public class DatabaseTest {
     try {
       Connection conn = getConnection();
       Database db = new Database();
-      db.drop(conn);
-      db.create(conn);
+      db.drop(conn, System.err);
+      db.create(conn, System.err);
       testTablesWerePopulated(conn, db);
     } catch (SQLException e) {
       fail("Database connection failed: ", e);
@@ -182,14 +185,38 @@ public class DatabaseTest {
     try {
       Connection conn = getConnection();
       Database db = new Database();
-      db.drop(conn);
+      db.drop(conn, System.err);
       testTablesWasDropped(conn, db);
       testCreateTables(conn, db);
-      db.drop(conn);
+      db.drop(conn, System.err);
       testTablesWasDropped(conn, db);
       conn.close();
     } catch (SQLException sqle) {
       fail("Database operation failed: ", sqle);
     }
+  }
+
+  @Test
+  @Order(3)
+  public void testTableNames() {
+    try {
+      Connection conn = getConnection();
+      Database db = new Database();
+      assertTrue(
+        db
+          .getTableNames()
+          .containsAll(
+            Arrays.asList(
+              "Motivation",
+              "Skill",
+              "Focus",
+              "Person",
+              "PersonMotivations",
+              "PersonSkills",
+              "PersonFocuses"
+            )
+          )
+      );
+    } catch (SQLException sqle) {}
   }
 }
